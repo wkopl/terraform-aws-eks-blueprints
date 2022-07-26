@@ -58,8 +58,8 @@ locals {
   #---------------------------------------------------------------
 
   workload_application = {
-    path               = "envs/dev"
-    repo_url           = "https://github.com/aws-samples/eks-blueprints-workloads.git"
+    path               = "multi-repo/argo-app-of-apps/dev"
+    repo_url           = "https://github.com/cornellanthony/eks-blueprints-workloads.git"
     add_on_application = false
   }
 }
@@ -148,18 +148,18 @@ module "eks_blueprints_kubernetes_addons" {
   # ADD-ONS
   #---------------------------------------------------------------
 
-  enable_aws_for_fluentbit            = true
-  enable_aws_load_balancer_controller = true
-  enable_cert_manager                 = true
-  enable_cluster_autoscaler           = true
-  enable_ingress_nginx                = true
-  enable_karpenter                    = true
-  enable_keda                         = true
-  enable_metrics_server               = true
-  enable_prometheus                   = true
-  enable_traefik                      = true
-  enable_vpa                          = true
-  enable_yunikorn                     = true
+  enable_aws_for_fluentbit            = false
+  enable_aws_load_balancer_controller = false
+  enable_cert_manager                 = false
+  enable_cluster_autoscaler           = false
+  enable_ingress_nginx                = false
+  enable_karpenter                    = false
+  enable_keda                         = false
+  enable_metrics_server               = false
+  enable_prometheus                   = false
+  enable_traefik                      = false
+  enable_vpa                          = false
+  enable_yunikorn                     = false
   enable_argo_rollouts                = true
 
   depends_on = [module.eks_blueprints.managed_node_groups]
