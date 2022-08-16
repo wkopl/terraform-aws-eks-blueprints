@@ -2,3 +2,26 @@ extraArgs:
   - --enable-certificate-owner-ref=true
 
 installCRDs: true
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+webhook:
+  replicaCount: 2
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+cainjector:
+  replicaCount: 2
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi

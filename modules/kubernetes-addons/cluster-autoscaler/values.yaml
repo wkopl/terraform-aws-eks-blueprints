@@ -8,6 +8,8 @@ extraArgs:
 image:
   tag: ${image_tag}
 
+replicaCount: 2
+
 resources:
   limits:
     cpu: 200m
@@ -15,3 +17,8 @@ resources:
   requests:
     cpu: 200m
     memory: 512Mi
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
