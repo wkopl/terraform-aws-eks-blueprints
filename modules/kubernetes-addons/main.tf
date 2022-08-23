@@ -530,3 +530,12 @@ module "kubecost" {
   manage_via_gitops = var.argocd_manage_add_ons
   addon_context     = local.addon_context
 }
+
+module "nvflare" {
+  source = "./nvflare"
+
+  count = var.enable_nvflare ? 1 : 0
+
+  helm_config   = var.nvflare_helm_config
+  addon_context = local.addon_context
+}

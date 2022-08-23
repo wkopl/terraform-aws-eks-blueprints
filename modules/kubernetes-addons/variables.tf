@@ -1077,3 +1077,16 @@ variable "kubecost_helm_config" {
   type        = any
   default     = {}
 }
+
+#-----------NVFlare-------------
+variable "enable_nvflare" {
+  description = "Enable NVFlare add-on"
+  type        = bool
+  default     = false
+}
+
+variable "nvflare_helm_config" {
+  description = "NVFlare helm chart config"
+  type        = any
+  default     = {}
+}
