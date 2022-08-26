@@ -1,0 +1,86 @@
+services:
+  overseer:
+    build: nvflare_compose
+    command:
+    - /workspace/startup/start.sh
+    image: nvflare-service
+    ports:
+    - 8443:8443
+    volumes:
+    - ./overseer:/workspace
+  server1:
+    command:
+    - /usr/local/bin/python3
+    - -u
+    - -m
+    - nvflare.private.fed.app.server.server_train
+    - -m
+    - /workspace
+    - -s
+    - fed_server.json
+    - --set
+    - secure_train=true
+    - config_folder=config
+    image: nvflare-service
+    ports:
+    - 8002:8002
+    - 8003:8003
+    volumes:
+    - ./server1:/workspace
+    - nvflare_svc_persist:/tmp/nvflare/
+  server2:
+    command:
+    - /usr/local/bin/python3
+    - -u
+    - -m
+    - nvflare.private.fed.app.server.server_train
+    - -m
+    - /workspace
+    - -s
+    - fed_server.json
+    - --set
+    - secure_train=true
+    - config_folder=config
+    image: nvflare-service
+    ports:
+    - 8102:8102
+    - 8103:8103
+    volumes:
+    - ./server2:/workspace
+    - nvflare_svc_persist:/tmp/nvflare/
+  site-1:
+    command:
+    - /usr/local/bin/python3
+    - -u
+    - -m
+    - nvflare.private.fed.app.client.client_train
+    - -m
+    - /workspace
+    - -s
+    - fed_client.json
+    - --set
+    - secure_train=true
+    - uid=site-1
+    - config_folder=config
+    image: nvflare-service
+    volumes:
+    - ./site-1:/workspace
+  site-2:
+    command:
+    - /usr/local/bin/python3
+    - -u
+    - -m
+    - nvflare.private.fed.app.client.client_train
+    - -m
+    - /workspace
+    - -s
+    - fed_client.json
+    - --set
+    - secure_train=true
+    - uid=site-2
+    - config_folder=config
+    image: nvflare-service
+    volumes:
+    - ./site-2:/workspace
+volumes:
+  nvflare_svc_persist: null

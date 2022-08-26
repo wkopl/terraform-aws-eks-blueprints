@@ -102,14 +102,155 @@ module "eks_blueprints_kubernetes_addons" {
   eks_oidc_provider    = module.eks_blueprints.oidc_provider
   eks_cluster_version  = module.eks_blueprints.eks_cluster_version
 
-  enable_nvflare = true
-  nvflare_helm_config = {
-    timeout = 180 # fail fast
-    # Here we are using the same image for both `overseer` and `server` for simplicity
-    overseer_image_repository = var.image_repository
-    overseer_image_tag        = var.image_tag
-    server_image_repository   = var.image_repository
-    server_image_tag          = var.image_tag
+  enable_aws_efs_csi_driver = true
+
+  # enable_nvflare = true
+  # nvflare_helm_config = {
+  #   timeout = 180 # fail fast
+  #   set = [
+  #     {
+  #       name  = "image.repository"
+  #       value = var.image_repository
+  #       }, {
+  #       name  = "image.tag"
+  #       value = var.image_tag
+  #     },
+  #     {
+  #       name  = "efsStorageClass.fileSystemId"
+  #       value = aws_efs_file_system.this.id
+  #     },
+  #   ]
+  # }
+
+  tags = local.tags
+}
+
+#---------------------------------------------------------------
+# Fileshare for configs/keys/etc.
+#---------------------------------------------------------------
+
+resource "aws_iam_instance_profile" "this" {
+  name = local.name
+  role = aws_iam_role.this.name
+}
+
+resource "aws_iam_role" "this" {
+  name_prefix = local.name
+
+  assume_role_policy  = <<-EOF
+    {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Action": "sts:AssumeRole",
+                "Principal": {
+                  "Service": "ec2.amazonaws.com"
+                },
+                "Effect": "Allow",
+                "Sid": ""
+            }
+        ]
+    }
+  EOF
+  managed_policy_arns = ["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]
+
+  tags = local.tags
+}
+
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-2*-x86_64-gp2"]
+  }
+}
+
+module "bastion_ec2" {
+  source  = "terraform-aws-modules/ec2-instance/aws"
+  version = "~> 3.0"
+
+  name = local.name
+
+  ami                    = data.aws_ami.amazon_linux.id
+  instance_type          = "t3.medium"
+  vpc_security_group_ids = [aws_security_group.bastion.id]
+  subnet_id              = element(module.vpc.private_subnets, 0)
+  iam_instance_profile   = aws_iam_instance_profile.this.name
+  user_data_base64 = base64encode(
+    <<-EOT
+      #!/bin/bash
+
+      WORKDIR=~/workspace
+
+      # Install pipenv
+      amazon-linux-extras install epel -y
+      yum install python-pip git -y
+      python3 -m pip install pipenv
+
+      # Setup EFS mount
+      mkdir $WORKDIR
+      mount -t nfs -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${element(local.azs, 0)}.${aws_efs_file_system.this.dns_name}:/workspace $WORKDIR
+
+
+
+      # NVflare
+      python3 -m pipenv install -e "git+https://git@github.com/NVIDIA/NVFlare.git@dev#egg=nvflare-nightly"
+      printf '\n[scripts]\nprovision = "nvflare provision -p project.yml"\n' >> Pipfile
+      # Hack to squeeze large file through userdata
+      printf ${filebase64("${path.module}/project.yml")} | base64 --decode > project.yml
+      python3 -m pipenv run provision
+      mv /workspace/example_project/prod_00/* $${WORKDIR}/
+      chmod go+rw $WORKDIR
+    EOT
+  )
+
+  tags = local.tags
+}
+
+resource "aws_security_group" "bastion" {
+  name        = "${local.name}-bastion"
+  description = "EC2 security group"
+  vpc_id      = module.vpc.vpc_id
+
+  egress {
+    description = "Temp"
+    cidr_blocks = ["0.0.0.0/0"]
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+  }
+
+  tags = local.tags
+}
+
+resource "aws_efs_file_system" "this" {
+  creation_token = local.name
+  encrypted      = true
+
+  tags = local.tags
+}
+
+resource "aws_efs_mount_target" "this" {
+  count = length(module.vpc.private_subnets)
+
+  file_system_id  = aws_efs_file_system.this.id
+  subnet_id       = module.vpc.private_subnets[count.index]
+  security_groups = [aws_security_group.this.id]
+}
+
+resource "aws_security_group" "this" {
+  name        = "${local.name}-efs"
+  description = "EFS security group"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description = "NFS access from private subnets"
+    cidr_blocks = module.vpc.private_subnets_cidr_blocks
+    from_port   = 2049
+    to_port     = 2049
+    protocol    = "tcp"
   }
 
   tags = local.tags
@@ -118,6 +259,7 @@ module "eks_blueprints_kubernetes_addons" {
 #---------------------------------------------------------------
 # Supporting Resources
 #---------------------------------------------------------------
+
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 3.0"
