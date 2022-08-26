@@ -48,12 +48,17 @@ module "eks_blueprints" {
   vpc_id             = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnets
 
-  managed_node_groups = {
+  eks_managed_node_groups = {
     velero = {
-      node_group_name    = "velero"
-      launch_template_os = "amazonlinux2eks"
-      subnet_ids         = module.vpc.private_subnets
-      k8s_taints         = [{ key = "VeleroOnly", value = "true", effect = "NO_SCHEDULE" }]
+      name = "velero"
+
+      taints = [
+        {
+          key    = "VeleroOnly"
+          value  = "true"
+          effect = "NO_SCHEDULE"
+        }
+      ]
     }
   }
 
